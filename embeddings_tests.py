@@ -2,8 +2,9 @@ import os
 import pickle
 import pytest
 from unittest.mock import patch
-from main import load_csv_data, generate_embeddings, recommend_shows
+from main import load_csv_data, generate_embeddings, recommend_shows, build_annoy_index
 from thefuzz import process
+from annoy import AnnoyIndex
 
 @pytest.fixture
 def dummy_data():
@@ -16,13 +17,13 @@ def dummy_data():
         "Stranger Things": "When a young boy disappears, supernatural forces must be confronted."
     }
 
-@patch("main.openai.ChatCompletion.create")
+@patch("main.openai.Embedding.create")
 def test_generate_embeddings_with_mock(mock_openai, dummy_data):
     """
     Test generate_embeddings with OpenAI API mocked.
     """
     mock_openai.return_value = {
-        "choices": [{"message": {"content": "[0.1, 0.2, 0.3]"}}]
+        "data": [{"embedding": [0.1, 0.2, 0.3]}]
     }
     output_file = "test_embeddings.pkl"
     generate_embeddings(dummy_data, output_file)
@@ -60,18 +61,38 @@ def test_fuzzy_matching():
     assert match == "Game of Thrones", "Fuzzy matching failed."
     assert score > 80, "Fuzzy match score too low."
 
-@patch("main.cosine_similarity")
-def test_recommend_shows(mock_cosine):
+def test_build_annoy_index(dummy_data):
     """
-    Test recommendation logic.
+    Test building an Annoy index for embeddings.
     """
     embeddings = {
         "Game of Thrones": [0.1, 0.2, 0.3],
         "Breaking Bad": [0.4, 0.5, 0.6],
         "Stranger Things": [0.7, 0.8, 0.9],
     }
-    user_input = ["Game of Thrones"]
-    mock_cosine.return_value = [0.9, 0.8]
+    index, mapping = build_annoy_index(embeddings, num_dimensions=3)
+    assert isinstance(index, AnnoyIndex), "Annoy index was not created properly."
+    assert len(mapping) == len(embeddings), "Mapping size mismatch."
 
-    recommendations = recommend_shows(user_input, embeddings)
+@patch("main.build_annoy_index")
+def test_recommend_shows_with_annoy(mock_annoy, dummy_data):
+    """
+    Test the recommend_shows function using Annoy index.
+    """
+    embeddings = {
+        "Game of Thrones": [0.1, 0.2, 0.3],
+        "Breaking Bad": [0.4, 0.5, 0.6],
+        "Stranger Things": [0.7, 0.8, 0.9],
+    }
+
+    user_input = ["Game of Thrones"]
+    mock_annoy.return_value = AnnoyIndex(3, 'angular'), {
+        0: "Game of Thrones",
+        1: "Breaking Bad",
+        2: "Stranger Things",
+    }
+
+    recommendations = recommend_shows(user_input, embeddings, "dummy_annoy_index.ann")
     assert len(recommendations) == 2, "Incorrect number of recommendations."
+    assert "Breaking Bad" in recommendations, "Expected show not in recommendations."
+    assert "Stranger Things" in recommendations, "Expected show not in recommendations."
