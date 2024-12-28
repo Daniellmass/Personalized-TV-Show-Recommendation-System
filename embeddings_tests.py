@@ -3,7 +3,7 @@ import pickle
 import pytest
 from unittest.mock import patch
 from annoy import AnnoyIndex
-from main import load_csv_data, generate_embeddings, recommend_shows, generate_show_ad
+from main import load_csv_data, generate_embeddings_if_needed, recommend_shows, generate_show_ad
 from thefuzz import process
 
 
@@ -28,7 +28,7 @@ def test_generate_embeddings_with_mock(mock_openai, dummy_data):
         "choices": [{"message": {"content": "[0.1, 0.2, 0.3]"}}]
     }
     output_file = "test_embeddings.pkl"
-    generate_embeddings(dummy_data, output_file)
+    generate_embeddings_if_needed(dummy_data, output_file)
 
     assert os.path.exists(output_file), "Embeddings file was not created."
 

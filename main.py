@@ -36,6 +36,7 @@ def load_csv_data(file_path):
             data[row['Title']] = row['Description']
     return data
 
+
 def generate_embeddings_if_needed(csv_file, embeddings_file):
     """
     Generate an embedding for each TV show only once and store it in a pickle.
@@ -91,6 +92,7 @@ def generate_embeddings_if_needed(csv_file, embeddings_file):
         pickle.dump(embeddings, f)
     print(f"{GREEN}>> Embeddings saved to {embeddings_file}{RESET}")
     
+
 def build_annoy_index_if_needed(embeddings_file, annoy_index_file):
     """
     Build an Annoy index from the embeddings if needed.
@@ -122,6 +124,7 @@ def build_annoy_index_if_needed(embeddings_file, annoy_index_file):
 
     print(f"{GREEN}>> Annoy index built and saved to {annoy_index_file} + mapping.pkl{RESET}")
 
+
 def load_annoy_index(annoy_index_file):
     """
     Load the Annoy index, the mapping, and the embeddings from disk.
@@ -147,13 +150,13 @@ def fuzzy_match_user_shows(user_input_list, possible_titles):
         matched_titles.append(match)
     return matched_titles
 
+
 def generate_image_with_lightx(prompt):
     """
     Generate an image using the LightX API, returning the URL of the image or an error message.
     """
     create_url = "https://api.lightxeditor.com/external/api/v1/text2image"
-    
-    
+        
     payload = {
         "textPrompt": prompt
     }
@@ -167,9 +170,7 @@ def generate_image_with_lightx(prompt):
         
         response = requests.post(create_url, headers=headers, json=payload)
         if response.status_code != 200:
-            return f"Failed to create image. Status code: {response.status_code}, Response: {response.text}"
-
-        
+            return f"Failed to create image. Status code: {response.status_code}, Response: {response.text}"    
         response_data = response.json()
         body_data = response_data.get("body", {})
         order_id = body_data.get("orderId")
@@ -202,11 +203,13 @@ def generate_image_with_lightx(prompt):
 
     except Exception as e:
         return f"An error occurred: {e}"
+
+
 def recommend_shows(user_shows, embeddings, index, mapping, top_n=5):
     """
-    1. Compute the average vector for the shows the user likes.
-    2. Use Annoy to find the most similar shows.
-    3. Return a list of strings like ["Sherlock (85%)", "Dark (81%)", ...].
+    Compute the average vector for the shows the user likes.
+    Use Annoy to find the most similar shows.
+    Return a list of strings like ["Sherlock (85%)", "Dark (81%)", ...].
     """
     avg_vector = [0.0] * NUM_DIMENSIONS
     for show in user_shows:
