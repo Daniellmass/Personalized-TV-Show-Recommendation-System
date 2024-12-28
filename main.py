@@ -7,6 +7,7 @@ from thefuzz import process
 from annoy import AnnoyIndex
 import json
 import re
+import time
 
 
 # Color constants
@@ -146,7 +147,61 @@ def fuzzy_match_user_shows(user_input_list, possible_titles):
         matched_titles.append(match)
     return matched_titles
 
+def generate_image_with_lightx(prompt):
+    """
+    Generate an image using the LightX API, returning the URL of the image or an error message.
+    """
+    create_url = "https://api.lightxeditor.com/external/api/v1/text2image"
+    
+    
+    payload = {
+        "textPrompt": prompt
+    }
 
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": lightx_api_key  
+    }
+
+    try:
+        
+        response = requests.post(create_url, headers=headers, json=payload)
+        if response.status_code != 200:
+            return f"Failed to create image. Status code: {response.status_code}, Response: {response.text}"
+
+        
+        response_data = response.json()
+        body_data = response_data.get("body", {})
+        order_id = body_data.get("orderId")
+        if not order_id:
+            return "Failed to retrieve order ID from response."
+
+        
+        status_url = "https://api.lightxeditor.com/external/api/v1/order-status"
+        for _ in range(5):  
+            time.sleep(3)  
+
+            status_payload = {"orderId": order_id}
+            status_response = requests.post(status_url, headers=headers, json=status_payload)
+            if status_response.status_code != 200:
+                continue
+
+            status_data = status_response.json()
+            status_body = status_data.get("body", {})
+            status = status_body.get("status")
+
+            if status == "active":
+                
+                output_url = status_body.get("output")
+                if output_url:
+                    return output_url
+            elif status == "failed":
+                return "Image generation failed."
+
+        return "Image generation timed out after 5 attempts."
+
+    except Exception as e:
+        return f"An error occurred: {e}"
 def recommend_shows(user_shows, embeddings, index, mapping, top_n=5):
     """
     1. Compute the average vector for the shows the user likes.
@@ -199,28 +254,14 @@ def generate_two_new_shows(user_shows, recommended_shows):
 
 def generate_show_ad(show_names):
     """
-    Generate custom show ads using the LightX API.
+    Generate custom show ads using LightX API.
     Returns a list of image URLs or failure messages.
     """
     ads = []
     for show in show_names:
-        if not lightx_api_key:
-            ads.append("[LightX API key not set. Can't generate ad.]")
-            continue
-
-        url = "https://api.lightxeditor.com/v1/generate-image"
-        headers = {"Authorization": f"Bearer {lightx_api_key}"}
-        payload = {
-            "prompt": f"Artistic poster for the TV show: {show}.",
-            "n": 1,
-            "size": "256x256"
-        }
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200:
-            image_url = response.json().get("image_url", "No 'image_url' in response.")
-            ads.append(image_url)
-        else:
-            ads.append(f"Failed to generate ad for {show}: {response.text}")
+        prompt = f"Artistic poster for the TV show: {show}"
+        ad_url = generate_image_with_lightx(prompt)
+        ads.append(ad_url)
     return ads
 
 
@@ -238,8 +279,6 @@ def main():
         )
         user_input_raw = input(prompt_text)
 
-        # Print the user's input in yellow/orange for clarity
-        print(f"{YELLOW_ORANGE}You typed: {user_input_raw}{RESET}")
 
         raw_shows = [x.strip() for x in user_input_raw.split(",") if x.strip()]
         if len(raw_shows) < 2:
@@ -252,7 +291,6 @@ def main():
             f"{GREEN}\nMaking sure, do you mean {', '.join(matched)}? (y/n){RESET}"
         )
         confirm = input().lower().strip()
-        print(f"{YELLOW_ORANGE}You typed: {confirm}{RESET}")
         if confirm == 'y':
             print(f"{GREEN}Great! Generating recommendations now…\n{RESET}")
             user_shows = matched
