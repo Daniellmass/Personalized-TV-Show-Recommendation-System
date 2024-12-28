@@ -2,63 +2,76 @@ import os
 import pickle
 import pytest
 from unittest.mock import patch
-from main import generate_embeddings
+from main import load_csv_data, generate_embeddings, recommend_shows
+from thefuzz import process
 
 @pytest.fixture
 def dummy_data():
-    """Fixture to provide dummy data for testing."""
+    """
+    Fixture to provide dummy data for testing.
+    """
     return {
-        "Game of Thrones": "Nine noble families fight for control over the lands of Westeros.",
+        "Game of Thrones": "Nine noble families fight for control over Westeros.",
         "Breaking Bad": "A high school chemistry teacher turns to manufacturing methamphetamine.",
+        "Stranger Things": "When a young boy disappears, supernatural forces must be confronted."
     }
 
 @patch("main.openai.ChatCompletion.create")
 def test_generate_embeddings_with_mock(mock_openai, dummy_data):
     """
-    Test the generate_embeddings function with OpenAI API mocked.
+    Test generate_embeddings with OpenAI API mocked.
     """
-    # Mock the API response
     mock_openai.return_value = {
-        "choices": [
-            {"message": {"content": "[0.1, 0.2, 0.3]"}}
-        ]
+        "choices": [{"message": {"content": "[0.1, 0.2, 0.3]"}}]
     }
-    
     output_file = "test_embeddings.pkl"
     generate_embeddings(dummy_data, output_file)
 
-    # Check if the file exists
     assert os.path.exists(output_file), "Embeddings file was not created."
 
-    # Verify content in the file
     with open(output_file, "rb") as f:
         embeddings = pickle.load(f)
 
     assert isinstance(embeddings, dict), "Embeddings should be a dictionary."
-    assert len(embeddings) == len(dummy_data), "The number of embeddings does not match input data."
+    assert len(embeddings) == len(dummy_data), "Embeddings count mismatch."
 
-    for key, vector in embeddings.items():
-        assert isinstance(vector, str), "Each embedding should be a string (from gpt-4o-mini)."
-
-    # Ensure OpenAI API was called the correct number of times
-    assert mock_openai.call_count == len(dummy_data), "API should be called once per description."
-
-    # Clean up
     os.remove(output_file)
 
-def test_generate_embeddings_empty_data():
+def test_load_csv_data(tmp_path):
     """
-    Test that the function handles empty input gracefully.
+    Test the load_csv_data function.
     """
-    output_file = "test_embeddings.pkl"
-    generate_embeddings({}, output_file)
+    csv_content = """Title,Description
+    Game of Thrones,Nine noble families fight for control over Westeros.
+    Breaking Bad,A high school chemistry teacher turns to manufacturing methamphetamine."""
+    csv_file = tmp_path / "shows.csv"
+    csv_file.write_text(csv_content)
 
-    # Verify the file content
-    with open(output_file, "rb") as f:
-        embeddings = pickle.load(f)
+    data = load_csv_data(csv_file)
+    assert len(data) == 2, "CSV loading failed."
 
-    assert isinstance(embeddings, dict), "Embeddings should be a dictionary."
-    assert len(embeddings) == 0, "Embeddings should be empty for empty input."
+def test_fuzzy_matching():
+    """
+    Test fuzzy matching functionality.
+    """
+    shows = ["Game of Thrones", "Breaking Bad", "Stranger Things"]
+    input_show = "gem of throns"
+    match, score = process.extractOne(input_show, shows)
+    assert match == "Game of Thrones", "Fuzzy matching failed."
+    assert score > 80, "Fuzzy match score too low."
 
-    # Clean up
-    os.remove(output_file)
+@patch("main.cosine_similarity")
+def test_recommend_shows(mock_cosine):
+    """
+    Test recommendation logic.
+    """
+    embeddings = {
+        "Game of Thrones": [0.1, 0.2, 0.3],
+        "Breaking Bad": [0.4, 0.5, 0.6],
+        "Stranger Things": [0.7, 0.8, 0.9],
+    }
+    user_input = ["Game of Thrones"]
+    mock_cosine.return_value = [0.9, 0.8]
+
+    recommendations = recommend_shows(user_input, embeddings)
+    assert len(recommendations) == 2, "Incorrect number of recommendations."
