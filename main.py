@@ -282,7 +282,7 @@ def main():
 
         raw_shows = [x.strip() for x in user_input_raw.split(",") if x.strip()]
         if len(raw_shows) < 2:
-            print(f"{GREEN}Please enter more than 1 show.\n{RESET}")
+            print(f"{GREEN}Please enter more than 1 show\n{RESET}")
             continue
 
         matched = fuzzy_match_user_shows(raw_shows, possible_titles)
@@ -296,7 +296,7 @@ def main():
             user_shows = matched
             break
         else:
-            print(f"{GREEN}Sorry about that. Let's try again.\n{RESET}")
+            print(f"{GREEN}Sorry about that. Let's try again, please make sure to write the names of the tv shows correctly\n{RESET}")
             continue
 
     recs = recommend_shows(user_shows, embeddings, index, mapping, top_n=5)
@@ -306,8 +306,8 @@ def main():
 
     (show1_name, show1_desc), (show2_name, show2_desc) = generate_two_new_shows(user_shows, recs)
 
-    print(f"\n{GREEN}I have also created two shows just for you:{RESET}")
-    print(f"{GREEN}Show #1 is based on the shows you liked (your input).{RESET}")
+    print(f"\n{GREEN}I have also created two shows which I think you would love.{RESET}")
+    print(f"{GREEN}Show #1 is based on the fact that you loved the input shows that you gave me.{RESET}")
     print(f"{GREEN}Its name is {show1_name} and it is about {show1_desc}{RESET}")
     print(f"{GREEN}Show #2 is based on the shows I recommended for you.{RESET}")
     print(f"{GREEN}Its name is {show2_name} and it is about {show2_desc}{RESET}")
