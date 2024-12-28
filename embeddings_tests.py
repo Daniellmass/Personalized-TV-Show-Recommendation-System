@@ -12,13 +12,17 @@ def dummy_data():
         "Breaking Bad": "A high school chemistry teacher turns to manufacturing methamphetamine.",
     }
 
-@patch("main.openai.Embedding.create")
+@patch("main.openai.ChatCompletion.create")
 def test_generate_embeddings_with_mock(mock_openai, dummy_data):
     """
     Test the generate_embeddings function with OpenAI API mocked.
     """
     # Mock the API response
-    mock_openai.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+    mock_openai.return_value = {
+        "choices": [
+            {"message": {"content": "[0.1, 0.2, 0.3]"}}
+        ]
+    }
     
     output_file = "test_embeddings.pkl"
     generate_embeddings(dummy_data, output_file)
@@ -34,8 +38,7 @@ def test_generate_embeddings_with_mock(mock_openai, dummy_data):
     assert len(embeddings) == len(dummy_data), "The number of embeddings does not match input data."
 
     for key, vector in embeddings.items():
-        assert isinstance(vector, list), "Each embedding should be a list."
-        assert len(vector) == 3, "Each embedding should have 3 dimensions."
+        assert isinstance(vector, str), "Each embedding should be a string (from gpt-4o-mini)."
 
     # Ensure OpenAI API was called the correct number of times
     assert mock_openai.call_count == len(dummy_data), "API should be called once per description."

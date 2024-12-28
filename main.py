@@ -1,5 +1,9 @@
 import openai
 import pickle
+import os
+
+API_KEY = os.getenv("OPENAI_API_KEY")
+print("Using API Key:", API_KEY)
 
 def generate_embeddings(show_descriptions, output_file):
     """
